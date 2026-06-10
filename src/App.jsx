@@ -399,7 +399,7 @@ function ResultScreen({ totalScore, maxScore, profile, guesses }) {
 
       <div style={{ ...s.card, textAlign: "center" }}>
         <a href="https://www.fifty5blue.com/se" style={{ ...s.btnAccent, display: "inline-block", textDecoration: "none" }}>
-          Besök fifty5blue.com →
+          Besök SIFO →
         </a>
       </div>
     </div>
