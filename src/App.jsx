@@ -42,13 +42,16 @@ async function getLeaderboard() {
 //  QUESTIONS — edit here!
 // ============================================================
 const QUESTIONS = [
-  { question: "Jag identifierar mig/känner samhörighet med HBTQI-rörelsen.", answer: 14 },
   { question: "Det är viktigt att Sverige har ett starkt militärt försvar.", answer: 86 },
+  { question: "Sverige bör införa Euro som valuta.", answer: 24 },
   { question: "Kriminaliteten i samhället oroar mig.", answer: 88 },
   { question: "Sverige bör ta emot fler flyktingar än idag.", answer: 23 },
   { question: "Jag föredrar vegetarisk kost.", answer: 19 },
   { question: "Sverige bör lämna EU.", answer: 15 },
-  { question: "Enligt mig är det kvinnan som bör ha huvudansvaret för hem och familj.", answer: 8 },
+  { question: "Klimatförändringarna oroar mig.", answer: 71 },
+  { question: "Jag identifierar mig/känner samhörighet med HBTQI-rörelsen.", answer: 14 },
+  { question: "Utbyggnad av svensk kärnkraft de kommande åren är nödvändig för ett stabilt och pålitligt energisystem i Sverige.", answer: 55 },
+  { question: "Min religiösa tro är väldigt viktig för mig.", answer: 17 },
 ];
 // ============================================================
 
