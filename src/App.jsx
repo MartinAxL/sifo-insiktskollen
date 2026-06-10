@@ -241,18 +241,7 @@ function ResultScreen({ totalScore, maxScore, profile, guesses }) {
   const needsEmail = wantCompete || wantReport || wantContact;
 
   useEffect(() => {
-    saveEntry({
-      nickname: profile.nickname,
-      gender: profile.gender,
-      age_group: profile.age_group,
-      score: pct,
-      responses: guesses.join(","),
-      email: null,
-      want_report: false,
-      want_contact: false,
-    }).then(() => {
-      getLeaderboard().then(data => setBoard(data));
-    });
+    getLeaderboard().then(data => setBoard(data));
   }, []);
 
   async function handleEmailSubmit() {
@@ -271,6 +260,24 @@ function ResultScreen({ totalScore, maxScore, profile, guesses }) {
     setSaving(false);
     setSubmitted(true);
   }
+
+  // Save without email on skip (only if they close without submitting email)
+  useEffect(() => {
+    const handleUnload = () => {
+      if (!submitted) {
+        navigator.sendBeacon(`${SUPABASE_URL}/rest/v1/scores`,
+          JSON.stringify({
+            nickname: profile.nickname, gender: profile.gender,
+            age_group: profile.age_group, score: pct,
+            responses: guesses.join(","), email: null,
+            want_report: false, want_contact: false,
+          })
+        );
+      }
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, [submitted]);
 
   const getVerdict = () => {
     if (pct >= 85) return { text: "Du är en SIFO-legend. Har du jobbat där?", emoji: "🏆" };
@@ -388,7 +395,9 @@ function ResultScreen({ totalScore, maxScore, profile, guesses }) {
       )}
 
       <div style={{ ...s.card, textAlign: "center" }}>
-        <button style={s.btnAccent} onClick={() => window.location.reload()}>Spela igen 🔄</button>
+        <a href="https://www.fifty5blue.com/se" style={{ ...s.btnAccent, display: "inline-block", textDecoration: "none" }}>
+          Besök fifty5blue.com →
+        </a>
       </div>
     </div>
   );
