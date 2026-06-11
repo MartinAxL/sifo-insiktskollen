@@ -6,34 +6,41 @@ import { useState, useEffect } from "react";
 const SUPABASE_URL = "https://utijjoiiwbdnqtdnsekq.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0aWpqb2lpd2JkbnF0ZG5zZWtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMTA1OTQsImV4cCI6MjA5NjU4NjU5NH0.TCD3ER3XU_IbDlKgNdh5PNdeXUe_eat5kWRIngP4pqA";
 
-const headers = {
+const dbHeaders = {
   "Content-Type": "application/json",
   "apikey": SUPABASE_ANON_KEY,
   "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
 };
 
-async function saveEntry({ nickname, gender, age_group, score, responses, email, want_report, want_contact }) {
+async function saveEntry(payload) {
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/scores`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/scores`, {
       method: "POST",
-      headers: { ...headers, "Prefer": "return=minimal" },
+      headers: { ...dbHeaders, "Prefer": "return=minimal" },
       body: JSON.stringify({
-        nickname,
-        gender,
-        age_group,
-        score,
-        responses,
-        email: email || null,
-        want_report: want_report || false,
-        want_contact: want_contact || false,
+        nickname: payload.nickname,
+        gender: payload.gender,
+        age_group: payload.age_group,
+        score: payload.score,
+        responses: payload.responses,
+        email: payload.email || null,
+        want_report: payload.want_report || false,
+        want_contact: payload.want_contact || false,
       }),
     });
-  } catch (e) { console.error("Save error:", e); }
+    return res.ok;
+  } catch (e) {
+    console.error("Save error:", e);
+    return false;
+  }
 }
 
 async function getLeaderboard() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/scores?select=nickname,email,score,created_at&order=score.desc&limit=500`, { headers });
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/scores?select=nickname,email,score&order=score.desc&limit=500`,
+      { headers: dbHeaders }
+    );
     return await res.json();
   } catch (e) { return []; }
 }
@@ -55,20 +62,28 @@ const QUESTIONS = [
 ];
 // ============================================================
 
+// Score per question: 100 pts if exact, 0 pts if 29+ off
+const calcScore = (guess, answer) => Math.max(0, Math.round(100 - Math.abs(guess - answer) * 3.5));
+
+// Final pct: average score across all questions (0–100)
+const calcFinalPct = (scores) => {
+  if (!scores.length) return 0;
+  return Math.min(100, Math.round(scores.reduce((a, b) => a + b, 0) / scores.length));
+};
+
+const getCommentary = (diff) => {
+  if (diff <= 3)  return { text: "Otroligt! Du är ett mänskligt SIFO-institut.", emoji: "🎯" };
+  if (diff <= 8)  return { text: "Riktigt bra! Du har koll på svenska folksjälen.", emoji: "🔥" };
+  if (diff <= 15) return { text: "Hyfsad gissning — du är minst lika träffsäker som en meteorolog.", emoji: "🤔" };
+  if (diff <= 25) return { text: "Hmmm.. dags att mingla med lite fler människor?", emoji: "😬" };
+  return { text: "Var bor du egentligen?", emoji: "😅" };
+};
+
 const COLORS = {
   navy: "#1a2f4e", navyLight: "#243d63", navyDark: "#0f1e33",
   blue: "#2c6fad", blueLight: "#4a8fd4", accent: "#e8a020",
   white: "#ffffff", offWhite: "#f4f7fb", gray: "#8a9bb0",
   lightGray: "#d6e0ec", green: "#2ecc71", red: "#e74c3c",
-};
-
-const calcScore = (guess, answer) => Math.max(0, Math.round(100 - Math.abs(guess - answer) * 3.5));
-const getCommentary = (diff) => {
-  if (diff <= 3)  return { text: "Otroligt! Du är ett mänskligt SIFO-institut.", emoji: "🎯" };
-  if (diff <= 8)  return { text: "Riktigt bra! Du har koll på svenska folksjälen.", emoji: "🔥" };
-  if (diff <= 15) return { text: "Hyfsad gissning — du är minst lika träffsäker som en meteorolog.", emoji: "🤔" };
-  if (diff <= 25) return { text: "Hmm. Kanske dags att prata med fler svenskar?", emoji: "😬" };
-  return { text: "Var bor du egentligen?", emoji: "😅" };
 };
 
 const s = {
@@ -93,16 +108,12 @@ function Logo() {
 
 function ToggleButton({ label, selected, onClick }) {
   return (
-    <button
-      onClick={onClick}
-      style={{
-        flex: 1, padding: "10px 6px", fontSize: 14, fontWeight: 600, cursor: "pointer",
-        borderRadius: 8, border: `2px solid ${selected ? COLORS.blue : COLORS.lightGray}`,
-        background: selected ? COLORS.blue : COLORS.white,
-        color: selected ? COLORS.white : COLORS.navy,
-        transition: "all 0.15s",
-      }}
-    >{label}</button>
+    <button onClick={onClick} style={{
+      flex: 1, padding: "10px 6px", fontSize: 14, fontWeight: 600, cursor: "pointer",
+      borderRadius: 8, border: `2px solid ${selected ? COLORS.blue : COLORS.lightGray}`,
+      background: selected ? COLORS.blue : COLORS.white,
+      color: selected ? COLORS.white : COLORS.navy, transition: "all 0.15s",
+    }}>{label}</button>
   );
 }
 
@@ -110,9 +121,7 @@ function ProfileScreen({ onDone }) {
   const [nickname, setNickname] = useState("");
   const [gender, setGender] = useState("");
   const [age, setAge] = useState("");
-
   const canProceed = nickname.trim() && gender && age;
-
   return (
     <div style={{ ...s.card, maxWidth: 520 }}>
       <div style={{ textAlign: "center", marginBottom: 24 }}>
@@ -120,41 +129,24 @@ function ProfileScreen({ onDone }) {
         <h1 style={{ color: COLORS.navy, fontSize: 22, margin: "0 0 6px", fontWeight: 700 }}>SIFO Insiktskollen</h1>
         <p style={{ color: COLORS.gray, fontSize: 14, margin: 0 }}>Gissa hur Svenskarna svarar — jämför med verkligheten!</p>
       </div>
-
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontSize: 13, fontWeight: 600, color: COLORS.navy, display: "block", marginBottom: 6 }}>Ditt namn / smeknamn</label>
-        <input
-          style={s.input}
-          placeholder="Vad ska vi kalla dig?"
-          value={nickname}
-          maxLength={30}
-          onChange={e => setNickname(e.target.value)}
-        />
+        <input style={s.input} placeholder="Vad ska vi kalla dig?" value={nickname} maxLength={30} onChange={e => setNickname(e.target.value)} />
       </div>
-
       <div style={{ marginBottom: 18 }}>
         <label style={{ fontSize: 13, fontWeight: 600, color: COLORS.navy, display: "block", marginBottom: 8 }}>Kön</label>
         <div style={{ display: "flex", gap: 8 }}>
-          {["Man", "Kvinna", "Annat"].map(g => (
-            <ToggleButton key={g} label={g} selected={gender === g} onClick={() => setGender(g)} />
-          ))}
+          {["Man", "Kvinna", "Annat"].map(g => <ToggleButton key={g} label={g} selected={gender === g} onClick={() => setGender(g)} />)}
         </div>
       </div>
-
       <div style={{ marginBottom: 24 }}>
         <label style={{ fontSize: 13, fontWeight: 600, color: COLORS.navy, display: "block", marginBottom: 8 }}>Ålder</label>
         <div style={{ display: "flex", gap: 8 }}>
-          {["15-29", "30-49", "50-69", "70+"].map(a => (
-            <ToggleButton key={a} label={a} selected={age === a} onClick={() => setAge(a)} />
-          ))}
+          {["15-29", "30-49", "50-69", "70+"].map(a => <ToggleButton key={a} label={a} selected={age === a} onClick={() => setAge(a)} />)}
         </div>
       </div>
-
-      <button
-        style={{ ...s.btnAccent, width: "100%", opacity: canProceed ? 1 : 0.4 }}
-        disabled={!canProceed}
-        onClick={() => onDone({ nickname: nickname.trim(), gender, age_group: age })}
-      >
+      <button style={{ ...s.btnAccent, width: "100%", opacity: canProceed ? 1 : 0.4 }} disabled={!canProceed}
+        onClick={() => onDone({ nickname: nickname.trim(), gender, age_group: age })}>
         Starta spelet 🇸🇪
       </button>
       <p style={{ fontSize: 11, color: COLORS.gray, textAlign: "center", marginTop: 10 }}>
@@ -170,13 +162,15 @@ function QuestionScreen({ question, qIndex, total, onSubmit }) {
     <div style={s.card}>
       <span style={s.tag}>Fråga {qIndex + 1} av {total}</span>
       <p style={{ fontSize: 13, color: COLORS.gray, marginBottom: 6 }}>Hur stor andel av Sveriges befolkning håller med om påståendet?</p>
-      <h2 style={{ color: COLORS.navy, fontSize: 19, margin: "0 0 32px", fontWeight: 700, lineHeight: 1.4 }}>"{question.question}"</h2>
+      <h2 style={{ color: COLORS.navy, fontSize: 22, margin: "0 0 32px", fontWeight: 700, lineHeight: 1.45, animation: "fadeIn 0.4s ease" }}>"{question.question}"</h2>
+      <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }`}</style>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
         <span style={{ fontSize: 14, color: COLORS.gray }}>0%</span>
         <span style={{ fontSize: 28, fontWeight: 700, color: COLORS.blue }}>{guess}%</span>
         <span style={{ fontSize: 14, color: COLORS.gray }}>100%</span>
       </div>
-      <input type="range" min={0} max={100} value={guess} onChange={e => setGuess(Number(e.target.value))} style={{ width: "100%", accentColor: COLORS.blue, height: 8, cursor: "pointer" }} />
+      <input type="range" min={0} max={100} value={guess} onChange={e => setGuess(Number(e.target.value))}
+        style={{ width: "100%", accentColor: COLORS.blue, height: 8, cursor: "pointer" }} />
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, marginBottom: 28 }}>
         {[0,10,20,30,40,50,60,70,80,90,100].map(v => <span key={v} style={{ fontSize: 10, color: COLORS.lightGray }}>{v}</span>)}
       </div>
@@ -189,7 +183,6 @@ function RevealScreen({ question, guess, score, onNext, isLast }) {
   const diff = Math.abs(guess - question.answer);
   const { text, emoji } = getCommentary(diff);
   const isGood = score >= 60;
-
   function Bar({ label, value, color }) {
     return (
       <div style={{ marginBottom: 12 }}>
@@ -203,7 +196,6 @@ function RevealScreen({ question, guess, score, onNext, isLast }) {
       </div>
     );
   }
-
   return (
     <div style={s.card}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -231,7 +223,7 @@ function Checkbox({ id, checked, onChange, children }) {
   );
 }
 
-function ResultScreen({ totalScore, maxScore, profile, guesses }) {
+function ResultScreen({ scores, profile, guesses }) {
   const [board, setBoard] = useState(null);
   const [email, setEmail] = useState("");
   const [wantCompete, setWantCompete] = useState(false);
@@ -239,17 +231,37 @@ function ResultScreen({ totalScore, maxScore, profile, guesses }) {
   const [wantContact, setWantContact] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [entrySaved, setEntrySaved] = useState(false);
+  const [contactName, setContactName] = useState("");
+  const [company, setCompany] = useState("");
+  const [contactTitle, setContactTitle] = useState("");
+  const [phone, setPhone] = useState("");
 
-  const pct = Math.round((totalScore / maxScore) * 100);
+  // Score is average of per-question scores, capped 0–100
+  const pct = calcFinalPct(scores);
   const needsEmail = wantCompete || wantReport || wantContact;
 
+  // Save score on mount (without email) then load leaderboard
   useEffect(() => {
-    getLeaderboard().then(data => setBoard(data));
+    saveEntry({
+      nickname: profile.nickname,
+      gender: profile.gender,
+      age_group: profile.age_group,
+      score: pct,
+      responses: guesses.join(","),
+      email: null,
+      want_report: false,
+      want_contact: false,
+    }).then(ok => {
+      setEntrySaved(ok);
+      getLeaderboard().then(data => setBoard(Array.isArray(data) ? data : []));
+    });
   }, []);
 
   async function handleEmailSubmit() {
     if (!email.trim()) return;
     setSaving(true);
+    // Update existing row by upserting with email + opt-ins
     await saveEntry({
       nickname: profile.nickname,
       gender: profile.gender,
@@ -259,28 +271,14 @@ function ResultScreen({ totalScore, maxScore, profile, guesses }) {
       email: email.trim(),
       want_report: wantReport,
       want_contact: wantContact,
+      contact_name: contactName.trim() || null,
+      company: company.trim() || null,
+      title: contactTitle.trim() || null,
+      phone: phone.trim() || null,
     });
     setSaving(false);
     setSubmitted(true);
   }
-
-  // Save without email on skip (only if they close without submitting email)
-  useEffect(() => {
-    const handleUnload = () => {
-      if (!submitted) {
-        navigator.sendBeacon(`${SUPABASE_URL}/rest/v1/scores`,
-          JSON.stringify({
-            nickname: profile.nickname, gender: profile.gender,
-            age_group: profile.age_group, score: pct,
-            responses: guesses.join(","), email: null,
-            want_report: false, want_contact: false,
-          })
-        );
-      }
-    };
-    window.addEventListener("beforeunload", handleUnload);
-    return () => window.removeEventListener("beforeunload", handleUnload);
-  }, [submitted]);
 
   const getVerdict = () => {
     if (pct >= 85) return { text: "Du är en SIFO-legend. Har du jobbat där?", emoji: "🏆" };
@@ -295,8 +293,17 @@ function ResultScreen({ totalScore, maxScore, profile, guesses }) {
   const median = sorted.length ? sorted[Math.floor(sorted.length / 2)]?.score : null;
   const myRankIndex = sorted.findIndex(e => e.nickname === profile.nickname && e.score === pct);
   const rank = myRankIndex + 1;
-  const beatPct = sorted.length > 1 ? Math.round((sorted.filter(e => e.score < pct).length / (sorted.length - 1)) * 100) : null;
-  const distBuckets = sorted.length ? (() => { const b = [0,0,0,0,0]; sorted.forEach(e => { b[Math.min(4, Math.floor(e.score / 20))]++; }); return b; })() : null;
+
+  // Clamp beat% strictly between 0–100
+  const beatPct = sorted.length > 1
+    ? Math.min(100, Math.max(0, Math.round((sorted.filter(e => e.score < pct).length / sorted.length) * 100)))
+    : null;
+
+  const distBuckets = sorted.length ? (() => {
+    const b = [0,0,0,0,0];
+    sorted.forEach(e => { b[Math.min(4, Math.floor(e.score / 20))]++; });
+    return b;
+  })() : null;
   const maxBucket = distBuckets ? Math.max(...distBuckets, 1) : 1;
   const myBucket = Math.min(4, Math.floor(pct / 20));
 
@@ -308,17 +315,15 @@ function ResultScreen({ totalScore, maxScore, profile, guesses }) {
         <p style={{ color: COLORS.gray, fontSize: 15, marginBottom: 4 }}>Ditt resultat: <strong style={{ color: COLORS.blue }}>{pct}%</strong></p>
         <p style={{ color: COLORS.gray, fontSize: 14, marginBottom: 20 }}>{text}</p>
         <div style={{ display: "flex", justifyContent: "center", gap: 28, flexWrap: "wrap" }}>
-          <div><div style={{ fontSize: 28, fontWeight: 700, color: COLORS.blue }}>{totalScore}</div><div style={{ fontSize: 12, color: COLORS.gray }}>Dina poäng</div></div>
-          <div><div style={{ fontSize: 28, fontWeight: 700, color: COLORS.navy }}>{maxScore}</div><div style={{ fontSize: 12, color: COLORS.gray }}>Max möjliga</div></div>
+          <div><div style={{ fontSize: 28, fontWeight: 700, color: COLORS.blue }}>{pct}%</div><div style={{ fontSize: 12, color: COLORS.gray }}>Din poäng</div></div>
           {avg !== null && <div><div style={{ fontSize: 28, fontWeight: 700, color: COLORS.accent }}>{avg}%</div><div style={{ fontSize: 12, color: COLORS.gray }}>Snittet bland alla</div></div>}
+          {beatPct !== null && <div><div style={{ fontSize: 28, fontWeight: 700, color: COLORS.green }}>{beatPct}%</div><div style={{ fontSize: 12, color: COLORS.gray }}>Bättre än</div></div>}
         </div>
       </div>
 
-      {/* Email opt-ins */}
       <div style={s.card}>
         <h3 style={{ color: COLORS.navy, marginTop: 0, marginBottom: 6, fontSize: 16 }}>📬 Håll kontakten</h3>
         <p style={{ color: COLORS.gray, fontSize: 13, marginBottom: 18 }}>Välj vad du är intresserad av — vi hör bara av oss om du bockar i något.</p>
-
         {submitted ? (
           <div style={{ background: "#eafaf2", border: `1px solid ${COLORS.green}`, borderRadius: 8, padding: "14px 16px", fontSize: 14, color: "#1e8449" }}>
             ✓ Tack! Vi hör av oss till <strong>{email}</strong>.
@@ -334,19 +339,43 @@ function ResultScreen({ totalScore, maxScore, profile, guesses }) {
             <Checkbox id="contact" checked={wantContact} onChange={setWantContact}>
               <strong>💼 Bli kontaktad</strong> — om du är intresserad av att köpa en egen undersökning
             </Checkbox>
-
             {needsEmail && (
               <div style={{ marginTop: 16 }}>
                 <label style={{ fontSize: 13, fontWeight: 600, color: COLORS.navy, display: "block", marginBottom: 6 }}>Din e-postadress</label>
-                <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
                   <input style={s.input} type="email" placeholder="din@email.se" value={email} onChange={e => setEmail(e.target.value)} />
-                  <button
-                    style={{ ...s.btn, whiteSpace: "nowrap", opacity: !email.trim() || saving ? 0.4 : 1 }}
-                    disabled={!email.trim() || saving}
-                    onClick={handleEmailSubmit}
-                  >{saving ? "…" : "Skicka"}</button>
+                  <button style={{ ...s.btn, whiteSpace: "nowrap", opacity: !email.trim() || saving ? 0.4 : 1 }}
+                    disabled={!email.trim() || saving} onClick={handleEmailSubmit}>
+                    {saving ? "…" : "Skicka"}
+                  </button>
                 </div>
-                <p style={{ fontSize: 11, color: COLORS.gray, marginTop: 8 }}>Din e-post används endast för de ändamål du valt ovan och delas inte vidare.</p>
+
+                {wantContact && (
+                  <div style={{ background: COLORS.offWhite, borderRadius: 10, padding: "16px", marginBottom: 12 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: COLORS.navy, margin: "0 0 4px" }}>Kontaktuppgifter <span style={{ fontWeight: 400, color: COLORS.gray }}>(valfritt)</span></p>
+                    <p style={{ fontSize: 12, color: COLORS.gray, margin: "0 0 14px" }}>Fyll i om du vill att vi ska kunna nå dig direkt.</p>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <div>
+                        <label style={{ fontSize: 12, color: COLORS.gray, display: "block", marginBottom: 4 }}>Namn</label>
+                        <input style={{ ...s.input, fontSize: 14, padding: "8px 12px" }} placeholder="Anna Andersson" value={contactName} onChange={e => setContactName(e.target.value)} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 12, color: COLORS.gray, display: "block", marginBottom: 4 }}>Företag</label>
+                        <input style={{ ...s.input, fontSize: 14, padding: "8px 12px" }} placeholder="Företag AB" value={company} onChange={e => setCompany(e.target.value)} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 12, color: COLORS.gray, display: "block", marginBottom: 4 }}>Titel</label>
+                        <input style={{ ...s.input, fontSize: 14, padding: "8px 12px" }} placeholder="VD, Chef, etc." value={contactTitle} onChange={e => setContactTitle(e.target.value)} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 12, color: COLORS.gray, display: "block", marginBottom: 4 }}>Telefon</label>
+                        <input style={{ ...s.input, fontSize: 14, padding: "8px 12px" }} placeholder="070-000 00 00" value={phone} onChange={e => setPhone(e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <p style={{ fontSize: 11, color: COLORS.gray, marginTop: 4 }}>Din e-post används endast för de ändamål du valt ovan och delas inte vidare.</p>
               </div>
             )}
           </>
@@ -445,7 +474,7 @@ export default function App() {
         {screen === "profile"  && <ProfileScreen onDone={handleProfileDone} />}
         {screen === "question" && <QuestionScreen question={q} qIndex={qIndex} total={QUESTIONS.length} onSubmit={handleSubmit} />}
         {screen === "reveal"   && <RevealScreen question={q} guess={lastGuess} score={scores[scores.length - 1]} onNext={handleNext} isLast={qIndex + 1 >= QUESTIONS.length} />}
-        {screen === "result"   && <ResultScreen totalScore={totalScore} maxScore={maxScore} profile={profile} guesses={guesses} />}
+        {screen === "result"   && <ResultScreen scores={scores} profile={profile} guesses={guesses} />}
       </div>
     </div>
   );
