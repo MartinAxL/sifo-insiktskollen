@@ -350,16 +350,10 @@ function ResultScreen({ scores, profile, guesses }) {
             {needsEmail && (
               <div style={{ marginTop: 16 }}>
                 <label style={{ fontSize: 13, fontWeight: 600, color: COLORS.navy, display: "block", marginBottom: 6 }}>Din e-postadress</label>
-                <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-                  <input style={s.input} type="email" placeholder="din@email.se" value={email} onChange={e => setEmail(e.target.value)} />
-                  <button style={{ ...s.btn, whiteSpace: "nowrap", opacity: !email.trim() || saving ? 0.4 : 1 }}
-                    disabled={!email.trim() || saving} onClick={handleEmailSubmit}>
-                    {saving ? "…" : "Skicka"}
-                  </button>
-                </div>
+                <input style={{ ...s.input, marginBottom: 14 }} type="email" placeholder="din@email.se" value={email} onChange={e => setEmail(e.target.value)} />
 
                 {wantContact && (
-                  <div style={{ background: COLORS.offWhite, borderRadius: 10, padding: "16px", marginBottom: 12 }}>
+                  <div style={{ background: COLORS.offWhite, borderRadius: 10, padding: "16px", marginBottom: 14 }}>
                     <p style={{ fontSize: 13, fontWeight: 600, color: COLORS.navy, margin: "0 0 4px" }}>Kontaktuppgifter <span style={{ fontWeight: 400, color: COLORS.gray }}>(valfritt)</span></p>
                     <p style={{ fontSize: 12, color: COLORS.gray, margin: "0 0 14px" }}>Fyll i om du vill att vi ska kunna nå dig direkt.</p>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -383,7 +377,12 @@ function ResultScreen({ scores, profile, guesses }) {
                   </div>
                 )}
 
-                <p style={{ fontSize: 11, color: COLORS.gray, marginTop: 4 }}>Din e-post används endast för de ändamål du valt ovan och delas inte vidare.</p>
+                <button
+                  style={{ ...s.btn, width: "100%", opacity: !email.trim() || saving ? 0.4 : 1 }}
+                  disabled={!email.trim() || saving}
+                  onClick={handleEmailSubmit}
+                >{saving ? "Sparar…" : "Skicka"}</button>
+                <p style={{ fontSize: 11, color: COLORS.gray, marginTop: 8 }}>Din e-post används endast för de ändamål du valt ovan och delas inte vidare.</p>
               </div>
             )}
           </>
