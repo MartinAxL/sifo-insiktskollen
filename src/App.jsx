@@ -288,7 +288,15 @@ function ResultScreen({ scores, profile, guesses }) {
   };
 
   const { text, emoji } = getVerdict();
-  const sorted = board ? [...board].sort((a, b) => b.score - a.score) : [];
+  // Deduplicate: keep highest score per nickname
+  const deduped = board ? Object.values(
+    board.reduce((acc, e) => {
+      const key = e.nickname.toLowerCase().trim();
+      if (!acc[key] || e.score > acc[key].score) acc[key] = e;
+      return acc;
+    }, {})
+  ) : [];
+  const sorted = deduped.sort((a, b) => b.score - a.score);
   const avg = sorted.length ? Math.round(sorted.reduce((a, b) => a + b.score, 0) / sorted.length) : null;
   const median = sorted.length ? sorted[Math.floor(sorted.length / 2)]?.score : null;
   const myRankIndex = sorted.findIndex(e => e.nickname === profile.nickname && e.score === pct);
