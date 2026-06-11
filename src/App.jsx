@@ -26,6 +26,10 @@ async function saveEntry(payload) {
         email: payload.email || null,
         want_report: payload.want_report || false,
         want_contact: payload.want_contact || false,
+        contact_name: payload.contact_name || null,
+        company: payload.company || null,
+        title: payload.title || null,
+        phone: payload.phone || null,
       }),
     });
     return res.ok;
