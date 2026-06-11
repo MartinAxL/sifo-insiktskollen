@@ -261,8 +261,7 @@ function ResultScreen({ scores, profile, guesses }) {
   async function handleEmailSubmit() {
     if (!email.trim()) return;
     setSaving(true);
-    // Update existing row by upserting with email + opt-ins
-    await saveEntry({
+    const payload = {
       nickname: profile.nickname,
       gender: profile.gender,
       age_group: profile.age_group,
@@ -275,7 +274,18 @@ function ResultScreen({ scores, profile, guesses }) {
       company: company.trim() || null,
       title: contactTitle.trim() || null,
       phone: phone.trim() || null,
-    });
+    };
+    console.log("Saving email entry:", payload); // debug
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/scores`, {
+        method: "POST",
+        headers: { ...dbHeaders, "Prefer": "return=minimal" },
+        body: JSON.stringify(payload),
+      });
+      console.log("Save status:", res.status);
+    } catch (e) {
+      console.error("Save failed:", e);
+    }
     setSaving(false);
     setSubmitted(true);
   }
